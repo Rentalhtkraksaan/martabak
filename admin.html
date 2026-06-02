@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Panel Kasir & Admin - Martabak</title>
+    <style>
+        body { font-family: sans-serif; background: #f4f4f4; padding: 15px; margin: 0; }
+        .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1200px; margin: auto; }
+        @media (max-width: 768px) { .admin-grid { grid-template-columns: 1fr; } }
+        
+        .box-panel { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .kartu-pesanan { background: #fff; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 6px; position: relative; }
+        .badge-kode { position: absolute; top: 15px; right: 15px; background: #333; color: #fff; padding: 4px 8px; font-weight: bold; border-radius: 4px; font-size: 16px; }
+        .detail-item { font-size: 14px; color: #555; margin: 3px 0; padding-left: 8px; border-left: 2px solid #ccc; }
+        
+        /* Form & Input */
+        input, select, button { padding: 8px; margin: 4px 0; width: 100%; box-sizing: border-box; }
+        .flex-row { display: flex; gap: 10px; }
+        .flex-row input, .flex-row button { width: auto; flex: 1; }
+        
+        /* Tombol-tombol Warna */
+        .btn-kuning { background: #ffc107; color: black; font-weight: bold; border: none; cursor: pointer; border-radius: 4px; }
+        .btn-hijau { background: #28a745; color: white; font-weight: bold; border: none; cursor: pointer; border-radius: 4px; }
+        .btn-wa { background: #25d366; color: white; font-weight: bold; border: none; cursor: pointer; border-radius: 4px; padding: 6px; font-size: 13px; text-decoration: none; display: inline-block; text-align: center; margin-top: 5px;}
+        
+        h3 { border-bottom: 2px solid #eee; padding-bottom: 5px; margin-top: 0; }
+        .omset-box { background: #e2f0d9; padding: 10px; border-radius: 5px; font-size: 18px; font-weight: bold; color: #385723; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div style="max-width: 1200px; margin: auto; margin-bottom: 15px;">
+    <h2>Dashboard Kasir & Dapur Martabak 🥞</h2>
+</div>
+
+<div class="admin-grid">
+    
+    <div>
+        <div class="box-panel">
+            <h3>1. Input Pesanan Manual (Kasir)</h3>
+            <input type="text" id="manual-nama" placeholder="Nama Pelanggan (Contoh: Pak Slamet)">
+            <input type="tel" id="manual-telp" placeholder="No WhatsApp (Opsional, Misal: 0812...)">
+            
+            <div class="flex-row">
+                <select id="manual-kategori" onchange="updateOpsiMenu()">
+                    <option value="Martabak Ayam">Martabak Ayam</option>
+                    <option value="Martabak Sapi">Martabak Sapi</option>
+                    <option value="Terang Bulan Single">Terang Bulan Single</option>
+                    <option value="Terang Bulan Double">Terang Bulan Double</option>
+                </select>
+                <select id="manual-varian"></select>
+            </div>
+            
+            <div class="flex-row">
+                <input type="number" id="manual-qty" value="1" min="1" style="width: 70px;">
+                <button class="btn-hijau" onclick="tambahItemManual()">+ Tambah ke List</button>
+            </div>
+            
+            <div id="preview-keranjang-manual" style="margin-top: 10px; font-size: 13px; color: #666;"></div>
+            <button class="btn-kuning" id="btn-submit-manual" style="display:none; margin-top:10px;" onclick="simpanPesananManual()">Simpan & Masukkan Antrean</button>
+        </div>
+
+        <div class="box-panel">
+            <h3>Laporan Omset Hari Ini</h3>
+            <div class="omset-box" id="tampil-omset">Total Omset: Rp 0</div>
+            <div id="jumlah-transaksi" style="font-size:14px; margin-top:5px; text-align:center; color:#666;">0 Transaksi Sukses</div>
+        </div>
+    </div>
+
+    <div>
+        <div class="box-panel">
+            <h3 style="color: #ff9800;">2. Menunggu Cocokkan Kode (Kuning)</h3>
+            <div id="list-konfirmasi">Mengambil data...</div>
+        </div>
+
+        <div class="box-panel">
+            <h3 style="color: #4caf50;">3. Sedang Dimasak / Antrean (Hijau)</h3>
+            <div id="list-proses">Mengambil data...</div>
+        </div>
+    </div>
+
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, push, set, update, remove, onValue, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBVDSAuf-jqAp-KwG5JcLTdgy2MPidSs_M",
+        authDomain: "utang-1.firebaseapp.com",
+        databaseURL: "https://utang-1-default-rtdb.firebaseio.com",
+        projectId: "utang-1",
+        storageBucket: "utang-1.firebasestorage.app",
+        messagingSenderId: "382580515654",
+        appId: "1:382580515654:web:b4859edf022d165c997b47",
+        measurementId: "G-D1P26PNZV1"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const tglHariIni = new Date().toISOString().split('T')[0];
+
+    const MENU_DATA = {
+        "Martabak Ayam": [{n:"Biasa", h:25000}, {n:"Istimewa", h:30000}, {n:"Super", h:35000}, {n:"Special", h:40000}],
+        "Martabak Sapi": [{n:"Biasa", h:30000}, {n:"Istimewa", h:35000}, {n:"Super", h:40000}, {n:"Special", h:50000}],
+        "Terang Bulan Single": [{n:"Coklat", h:15000}, {n:"Kacang", h:15000}, {n:"Coklat Kacang", h:15000}, {n:"Keju", h:20000}],
+        "Terang Bulan Double": [{n:"Coklat Kacang", h:20000}, {n:"Coklat Susu", h:20000}, {n:"Kacang Susu", h:20000}, {n:"Coklat Keju", h:25000}, {n:"Kacang Keju", h:25000}, {n:"Keju Susu", h:25000}, {n:"Coklat Kacang Keju Susu", h:30000}]
+    };
+
+    let keranjangManual = [];
+
+    // --- LOGIK INPUT MANUAL KASIR ---
+    window.updateOpsiMenu = function() {
+        const kat = document.getElementById('manual-kategori').value;
+        let html = '';
+        MENU_DATA[kat].forEach((item, idx) => {
+            html += `<option value="${idx}">${item.n} (Rp ${item.h.toLocaleString()})</option>`;
+        });
+        document.getElementById('manual-varian').innerHTML = html;
+    }
+    updateOpsiMenu();
+
+    window.tambahItemManual = function() {
+        const kat = document.getElementById('manual-kategori').value;
+        const idx = document.getElementById('manual-varian').value;
+        const qty = parseInt(document.getElementById('manual-qty').value);
+        const itemPilihan = MENU_DATA[kat][idx];
+
+        keranjangManual.push({
+            menu: `${kat} - ${itemPilihan.n}`,
+            harga: itemPilihan.h,
+            qty: qty
+        });
+        renderKeranjangManual();
+    }
+
+    function renderKeranjangManual() {
+        if(keranjangManual.length === 0) {
+            document.getElementById('preview-keranjang-manual').innerHTML = '';
+            document.getElementById('btn-submit-manual').style.display = 'none';
+            return;
+        }
+        let html = '<b>Items:</b><br>';
+        let total = 0;
+        keranjangManual.forEach((item, i) => {
+            html += `${item.qty}x ${item.menu} - Rp ${(item.harga * item.qty).toLocaleString()} <a href="#" onclick="hapusItemManual(${i})" style="color:red"> Hapus</a><br>`;
+            total += (item.harga * item.qty);
+        });
+        html += `<b>Total Tagihan: Rp ${total.toLocaleString()}</b>`;
+        document.getElementById('preview-keranjang-manual').innerHTML = html;
+        document.getElementById('btn-submit-manual').style.display = 'block';
+    }
+
+    window.hapusItemManual = function(index) {
+        keranjangManual.splice(index, 1);
+        renderKeranjangManual();
+    }
+
+    window.simpanPesananManual = function() {
+        const nama = document.getElementById('manual-nama').value || "Pelanggan Offline";
+        const telp = document.getElementById('manual-telp').value || "-";
+        const total = keranjangManual.reduce((sum, i) => sum + (i.harga * i.qty), 0);
+        
+        const newRef = push(ref(db, 'pesanan'));
+        set(newRef, {
+            nama: nama,
+            noTelp: telp,
+            items: keranjangManual,
+            totalTagihan: total,
+            status: 'proses', 
+            kodeVerifikasi: 'MANL',
+            timestamp: Date.now() // Langsung mendapat timestamp antrean saat ini
+        }).then(() => {
+            document.getElementById('manual-nama').value = '';
+            document.getElementById('manual-telp').value = '';
+            keranjangManual = [];
+            renderKeranjangManual();
+            alert("Pesanan manual berhasil dimasukkan ke antrean dapur!");
+        });
+    }
+
+
+    // --- PANTAL ANTREAN & REKAP REALTIME ---
+    onValue(ref(db, 'pesanan'), (snapshot) => {
+        const data = snapshot.val();
+        let htmlKonfirmasi = '';
+        let htmlProses = '';
+
+        if (!data) {
+            document.getElementById('list-konfirmasi').innerHTML = '<p style="color:#999;">Belum ada pesanan masuk dari aplikasi user.</p>';
+            document.getElementById('list-proses').innerHTML = '<p style="color:#999;">Dapur kosong, tidak ada antrean.</p>';
+            return;
+        }
+
+        // Diurutkan berdasarkan timestamp agar adil
+        const sorted = Object.keys(data).map(k => ({id: k, ...data[k]})).sort((a,b) => a.timestamp - b.timestamp);
+        let nomorAntrean = 1;
+
+        sorted.forEach(p => {
+            let listMakanan = p.items.map(i => `<div class="detail-item">• <b>${i.qty}x</b> ${i.menu}</div>`).join('');
+            
+            if (p.status === 'menunggu_konfirmasi') {
+                htmlKonfirmasi += `
+                    <div class="kartu-pesanan" style="border-left: 5px solid #ff9800;">
+                        <div class="badge-kode" style="background:#ff9800; color:black;">${p.kodeVerifikasi}</div>
+                        <b>${p.nama}</b> (${p.noTelp})
+                        ${listMakanan}
+                        <div style="margin: 8px 0 3px 0;"><b>Total: Rp ${p.totalTagihan.toLocaleString()}</b></div>
+                        <div class="flex-row" style="margin-top:10px;">
+                            <input type="text" id="input-verify-${p.id}" placeholder="Masukkan Kode" style="width:110px; text-transform:uppercase;">
+                            <button class="btn-kuning" onclick="cocokkanKode('${p.id}', '${p.kodeVerifikasi}')">Cocokkan Kode</button>
+                        </div>
+                    </div>
+                `;
+            } else if (p.status === 'proses') {
+                let waLink = "#";
+                if(p.noTelp && p.noTelp !== "-") {
+                    let formatWa = p.noTelp.replace(/^0/, '62');
+                    let pesanWa = encodeURIComponent(`Halo ${p.nama}, Martabak/Terang Bulan pesanan kamu sudah matang nih! 🎉 Silakan diambil di konter ya. Terima kasih.`);
+                    waLink = `https://wa.me/${formatWa}?text=${pesanWa}`;
+                }
+
+                htmlProses += `
+                    <div class="kartu-pesanan" style="border-left: 5px solid #4caf50;">
+                        <div class="badge-kode" style="background:#4caf50;">#${nomorAntrean}</div>
+                        <small style="color:#777;">Kode: ${p.kodeVerifikasi}</small><br>
+                        <b>${p.nama}</b>
+                        ${listMakanan}
+                        <div style="margin: 5px 0;"><b>Total: Rp ${p.totalTagihan.toLocaleString()}</b></div>
+                        
+                        <div class="flex-row">
+                            <button class="btn-hijau" onclick="selesaiDanRekap('${p.id}')">✓ Centang (Selesai & Bayar)</button>
+                            ${p.noTelp !== "-" ? `<a href="${waLink}" target="_blank" class="btn-wa">📞 Panggil WA</a>` : ''}
+                        </div>
+                    </div>
+                `;
+                nomorAntrean++;
+            }
+        });
+
+        document.getElementById('list-konfirmasi').innerHTML = htmlKonfirmasi || '<p style="color:#999;">Belum ada pesanan baru.</p>';
+        document.getElementById('list-proses').innerHTML = htmlProses || '<p style="color:#999;">Dapur kosong, tidak ada antrean.</p>';
+    });
+
+    // VALIDASI & RESET TIMESTAMP (KUNCI UTAMA ATURAN ANDA)
+    window.cocokkanKode = function(idPesanan, kodeAsli) {
+        const inputKode = document.getElementById(`input-verify-${idPesanan}`).value.trim().toUpperCase();
+        if(inputKode === kodeAsli) {
+            // Ketika dikonfirmasi, perbarui status ke 'proses' DAN set timestamp ke detik INI
+            // Otomatis terlempar ke urutan terbawah di dapur tanpa peduli kapan dia buat di HP
+            update(ref(db, `pesanan/${idPesanan}`), { 
+                status: 'proses',
+                timestamp: Date.now() 
+            });
+        } else {
+            alert("Kode salah/tidak cocok! Periksa kembali.");
+        }
+    }
+
+    // PINDAH KE REKAP LALU HAPUS DARI ANTREAN
+    window.selesaiDanRekap = function(idPesanan) {
+        if(confirm("Selesaikan transaksi? Pesanan akan disimpan ke rekap omset hari ini.")) {
+            // Menggunakan fungsi get() sekali panggil agar tidak menumpuk loop data
+            get(ref(db, `pesanan/${idPesanan}`)).then((snapshot) => {
+                if(snapshot.exists()) {
+                    const dataPesanan = snapshot.val();
+                    dataPesanan.status = "Telah Dibayar";
+                    const rekapRef = push(ref(db, `rekap_penjualan/${tglHariIni}`));
+                    
+                    set(rekapRef, dataPesanan).then(() => {
+                        remove(ref(db, `pesanan/${idPesanan}`));
+                    });
+                }
+            }).catch(err => alert("Gagal memproses data: " + err));
+        }
+    }
+
+    // --- HITUNG REKAP OMSET HARI INI SECARA REALTIME ---
+    onValue(ref(db, `rekap_penjualan/${tglHariIni}`), (snapshot) => {
+        const data = snapshot.val();
+        let totalOmset = 0;
+        let totalTransaksi = 0;
+
+        if(data) {
+            Object.values(data).forEach(nota => {
+                totalOmset += nota.totalTagihan;
+                totalTransaksi++;
+            });
+        }
+        document.getElementById('tampil-omset').innerText = `Total Omset: Rp ${totalOmset.toLocaleString()}`;
+        document.getElementById('jumlah-transaksi').innerText = `${totalTransaksi} Transaksi Sukses`;
+    });
+
+</script>
+</body>
+</html>

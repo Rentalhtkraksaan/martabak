@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Pemesanan & Monitor Martabak</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Desain Swipe Modern ala Aplikasi Premium */
+        .swipe-bg { 
+            position: relative; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            overflow: hidden; 
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        .swipe-handle { 
+            width: 48px; 
+            height: 48px; 
+            background: #dc2626; 
+            border-radius: 9999px; 
+            position: absolute; 
+            left: 0; 
+            top: 0; 
+            cursor: pointer; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 10; 
+            box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3);
+        }
+        .swipe-handle::after { 
+            content: '➔'; 
+            color: white; 
+            font-size: 16px; 
+            font-weight: bold; 
+        }
+        .swipe-text {
+            transition: opacity 0.1s ease;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        /* Transisi halus ketika tombol kembali membal ke posisi awal */
+        .smooth-back {
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans min-h-screen pb-12">
+
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-md mx-auto flex justify-around">
+            <button id="nav-pesan" onclick="pindahTab('pesan')" class="w-1/2 py-4 text-center font-bold border-b-4 border-red-600 text-red-600 transition-all flex items-center justify-center gap-2">
+                🥞 Pesan Martabak
+            </button>
+            <button id="nav-monitor" onclick="pindahTab('monitor')" class="w-1/2 py-4 text-center font-semibold border-b-4 border-transparent text-gray-500 hover:text-gray-700 transition-all flex items-center justify-center gap-2">
+                📺 Live Monitor Antrean
+            </button>
+        </div>
+    </nav>
+
+    <div class="max-w-md mx-auto px-4 mt-4">
+
+        <div id="tab-konten-pesan">
+            
+            <div id="step1" class="space-y-4">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <h2 class="text-2xl font-black text-gray-800 mb-2">Sistem Antrean Martabak 👋</h2>
+                    <p class="text-gray-500 text-sm mb-6">Silakan isi data diri Anda untuk memulai pesanan baru.</p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-gray-400 mb-1">Nama Anda</label>
+                            <input type="text" id="nama" placeholder="Contoh: Budi Santoso" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white transition-all text-gray-800">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase text-gray-400 mb-1">No WhatsApp</label>
+                            <input type="tel" id="noTelp" placeholder="Contoh: 081234xxxx" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white transition-all text-gray-800">
+                        </div>
+                        <button class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-red-600/20 transition-all active:scale-98" onclick="keStep2()">
+                            Lanjut Pilih Menu ➔
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-gray-900 p-6 rounded-2xl shadow-md text-white">
+                    <h3 class="text-md font-bold mb-1">Sudah Pesan Sebelumnya? 🔍</h3>
+                    <p class="text-gray-400 text-xs mb-4">Masukkan 4 digit kode pesananmu untuk pantau kembali status antrean.</p>
+                    
+                    <div class="flex gap-2">
+                        <input type="text" id="input-cek-kode" maxlength="4" placeholder="KODE" class="w-1/3 px-3 py-3 bg-gray-800 border border-gray-700 rounded-xl text-center font-mono font-bold tracking-widest text-xl uppercase text-yellow-400 placeholder-gray-600 focus:outline-none focus:border-yellow-400">
+                        <button class="w-2/3 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-bold py-3 rounded-xl transition-all active:scale-98 text-sm" onclick="lacakKodePesanan()">
+                            Cek Antrean Saya
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="step2" class="hidden space-y-6">
+                <div class="bg-gradient-to-r from-red-600 to-orange-500 p-4 rounded-2xl text-white shadow-md">
+                    <h3 id="sapa-user" class="text-lg font-bold"></h3>
+                    <p class="text-xs text-white/80">Ketuk tanda (+) untuk menambahkan martabak kesukaanmu.</p>
+                </div>
+
+                <div id="menu-container" class="space-y-4"></div>
+
+                <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-4 shadow-[0_-8px_30px_rgb(0,0,0,0.04)] z-50">
+                    <div class="max-w-md mx-auto flex flex-col gap-2">
+                        <div class="flex justify-between items-center px-1">
+                            <span class="text-sm text-gray-500 font-medium">Total Tagihan:</span>
+                            <span id="total-tagihan" class="text-xl font-black text-gray-900">Rp 0</span>
+                        </div>
+                        
+                        <div id="swipe-area" class="swipe-bg bg-red-50 border border-red-200 h-12 rounded-full text-sm font-bold text-red-700 select-none" style="display:none;">
+                            <span id="swipe-text" class="swipe-text">Geser Kanan untuk Pesan ➔</span>
+                            <div id="handle" class="swipe-handle smooth-back"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="step3" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-gray-100 text-center space-y-6 my-4">
+                <div>
+                    <h2 class="text-xl font-extrabold text-gray-800">Pesanan Terkirim! ⏳</h2>
+                    <p class="text-gray-500 text-sm mt-1">Sebutkan/tunjukkan kode ini ke kasir agar mulai dimasak:</p>
+                </div>
+
+                <div class="inline-block bg-gray-100 text-gray-800 font-mono text-4xl font-black tracking-widest px-6 py-3 rounded-2xl border-2 border-gray-200 shadow-sm" id="tampil-kode">
+                    XXXX
+                </div>
+
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 font-semibold animate-pulse">
+                    ⚠️ Harap screenshot (SS) layar ini agar kode Anda tidak hilang atau lupa!
+                </div>
+
+                <div class="border-t border-dashed border-gray-200 pt-4">
+                    <p class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2">Status Antrean Kamu</p>
+                    <div id="tampil-urutan" class="text-lg font-black text-white py-3.5 px-4 rounded-xl shadow-md transition-all duration-300">
+                        Menunggu...
+                    </div>
+                    <p id="sub-status" class="text-sm font-semibold mt-3 transition-all duration-300"></p>
+                </div>
+
+                <div class="pt-2 border-t border-gray-100">
+                    <button class="w-full bg-gray-900 hover:bg-black text-white text-sm font-bold py-3 rounded-xl transition-all shadow-md active:scale-98" onclick="buatPesananBaru()">
+                        + Buat Pesanan Baru Lagi
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="tab-konten-monitor" class="hidden space-y-4 mb-8">
+            <div class="text-center p-2">
+                <h2 class="text-xl font-black text-gray-800">Live Antrean Toko 📺</h2>
+                <p class="text-xs text-gray-500">Daftar semua antrean yang sedang aktif saat ini.</p>
+            </div>
+
+            <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                <h3 class="text-sm font-extrabold text-amber-800 mb-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    1. Menunggu Konfirmasi Kasir
+                </h3>
+                <div id="monitor-konfirmasi" class="space-y-2 text-sm text-amber-900">Mengambil data...</div>
+            </div>
+
+            <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4">
+                <h3 class="text-sm font-extrabold text-emerald-800 mb-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    2. Sedang Dimasak / Antrean Dapur
+                </h3>
+                <div id="monitor-proses" class="space-y-2 text-sm text-emerald-900">Mengambil data...</div>
+            </div>
+        </div>
+
+    </div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, push, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBVDSAuf-jqAp-KwG5JcLTdgy2MPidSs_M",
+        authDomain: "utang-1.firebaseapp.com",
+        databaseURL: "https://utang-1-default-rtdb.firebaseio.com",
+        projectId: "utang-1",
+        storageBucket: "utang-1.firebasestorage.app",
+        messagingSenderId: "382580515654",
+        appId: "1:382580515654:web:b4859edf022d165c997b47",
+        measurementId: "G-D1P26PNZV1"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const MENU_DATA = {
+        "Martabak Ayam": [{n:"Biasa", h:25000}, {n:"Istimewa", h:30000}, {n:"Super", h:35000}, {n:"Special", h:40000}],
+        "Martabak Sapi": [{n:"Biasa", h:30000}, {n:"Istimewa", h:35000}, {n:"Super", h:40000}, {n:"Special", h:50000}],
+        "Terang Bulan Single": [{n:"Coklat", h:15000}, {n:"Kacang", h:15000}, {n:"Coklat Kacang", h:15000}, {n:"Keju", h:20000}],
+        "Terang Bulan Double": [{n:"Coklat Kacang", h:20000}, {n:"Coklat Susu", h:20000}, {n:"Kacang Susu", h:20000}, {n:"Coklat Keju", h:25000}, {n:"Kacang Keju", h:25000}, {n:"Keju Susu", h:25000}, {n:"Coklat Kacang Keju Susu", h:30000}]
+    };
+
+    let dataUser = { nama: '', noTelp: '' };
+    let cart = {};
+    let totalHarga = 0;
+
+    window.pindahTab = function(target) {
+        const navPesan = document.getElementById('nav-pesan');
+        const navMonitor = document.getElementById('nav-monitor');
+        const kontenPesan = document.getElementById('tab-konten-pesan');
+        const kontenMonitor = document.getElementById('tab-konten-monitor');
+
+        if(target === 'pesan') {
+            navPesan.className = "w-1/2 py-4 text-center font-bold border-b-4 border-red-600 text-red-600 transition-all flex items-center justify-center gap-2";
+            navMonitor.className = "w-1/2 py-4 text-center font-semibold border-b-4 border-transparent text-gray-500 hover:text-gray-700 transition-all flex items-center justify-center gap-2";
+            kontenPesan.classList.remove('hidden');
+            kontenMonitor.classList.add('hidden');
+        } else {
+            navPesan.className = "w-1/2 py-4 text-center font-semibold border-b-4 border-transparent text-gray-500 hover:text-gray-700 transition-all flex items-center justify-center gap-2";
+            navMonitor.className = "w-1/2 py-4 text-center font-bold border-b-4 border-red-600 text-red-600 transition-all flex items-center justify-center gap-2";
+            kontenPesan.classList.add('hidden');
+            kontenMonitor.classList.remove('hidden');
+        }
+    }
+
+    window.keStep2 = function() {
+        dataUser.nama = document.getElementById('nama').value.trim();
+        dataUser.noTelp = document.getElementById('noTelp').value.trim();
+        if(!dataUser.nama || !dataUser.noTelp) return alert('Isi Nama & No HP dulu!');
+        
+        document.getElementById('step1').classList.add('hidden');
+        document.getElementById('step2').classList.remove('hidden');
+        document.getElementById('sapa-user').innerText = `Halo, ${dataUser.nama}!`;
+        renderMenu();
+    }
+
+    function renderMenu() {
+        let html = '';
+        for (let kat in MENU_DATA) {
+            html += `
+            <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                <h4 class="text-sm font-black text-gray-700 mb-3 border-b pb-1 border-gray-100">${kat}</h4>
+                <div class="divide-y divide-gray-50">`;
+            
+            MENU_DATA[kat].forEach(item => {
+                let key = `${kat} - ${item.n}`;
+                let qty = cart[key] ? cart[key].qty : 0;
+                html += `
+                <div class="flex justify-between items-center py-2.5">
+                    <div>
+                        <div class="text-sm font-bold text-gray-800">${item.n}</div>
+                        <div class="text-xs font-semibold text-emerald-600">Rp ${item.h.toLocaleString()}</div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="ubahQty('${key}', ${item.h}, -1)" class="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold flex items-center justify-center transition-all">-</button>
+                        <span class="font-extrabold text-sm text-gray-900 min-w-[12px] text-center">${qty}</span>
+                        <button onclick="ubahQty('${key}', ${item.h}, 1)" class="w-8 h-8 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-bold flex items-center justify-center transition-all">+</button>
+                    </div>
+                </div>`;
+            });
+            html += `</div></div>`;
+        }
+        document.getElementById('menu-container').innerHTML = html;
+    }
+
+    window.ubahQty = function(key, harga, aksi) {
+        if (!cart[key]) cart[key] = { harga: harga, qty: 0 };
+        cart[key].qty += aksi;
+        if (cart[key].qty <= 0) delete cart[key];
+        
+        totalHarga = Object.values(cart).reduce((sum, item) => sum + (item.harga * item.qty), 0);
+        document.getElementById('total-tagihan').innerText = `Rp ${totalHarga.toLocaleString()}`;
+        document.getElementById('swipe-area').style.display = totalHarga > 0 ? 'flex' : 'none';
+        renderMenu();
+    }
+
+    window.lacakKodePesanan = function() {
+        const inputKode = document.getElementById('input-cek-kode').value.trim().toUpperCase();
+        if (inputKode.length !== 4) return alert('Masukkan 4 digit kode dengan benar!');
+
+        get(ref(db, 'pesanan')).then((snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                const ketemuId = Object.keys(data).find(key => data[key].kodeVerifikasi === inputKode);
+                
+                if (ketemuId) {
+                    document.getElementById('input-cek-kode').value = ''; 
+                    pantauAntreanRealtime(ketemuId);
+                } else {
+                    alert('Maaf, Kode Pesanan tidak ditemukan atau mungkin sudah selesai/dihapus.');
+                }
+            } else {
+                alert('Belum ada antrean terdaftar di server.');
+            }
+        }).catch(err => alert('Gagal memproses data: ' + err));
+    }
+
+    window.buatPesananBaru = function() {
+        cart = {};
+        totalHarga = 0;
+        document.getElementById('total-tagihan').innerText = `Rp 0`;
+        document.getElementById('swipe-area').style.display = 'none';
+        document.getElementById('step3').classList.add('hidden');
+        document.getElementById('step1').classList.remove('hidden');
+        document.getElementById('nama').value = '';
+        document.getElementById('noTelp').value = '';
+        document.getElementById('swipe-area').parentElement.parentElement.classList.remove('hidden');
+        
+        // Reset element swipe
+        const handle = document.getElementById('handle');
+        const swipeArea = document.getElementById('swipe-area');
+        const swipeText = document.getElementById('swipe-text');
+        handle.style.transform = 'translateX(0px)';
+        swipeArea.style.backgroundColor = '';
+        swipeArea.style.borderColor = '';
+        swipeText.style.opacity = '1';
+    }
+
+    // --- LOGIKA EMULATOR SWIPE APLIKASI MODERN ---
+    const handle = document.getElementById('handle');
+    const swipeArea = document.getElementById('swipe-area');
+    const swipeText = document.getElementById('swipe-text');
+    let isDragging = false;
+    let startX = 0;
+    
+    const startDrag = (e) => { 
+        isDragging = true; 
+        startX = e.touches ? e.touches[0].clientX : e.clientX;
+        handle.classList.remove('smooth-back'); // Matikan transisi saat di-drag agar instan
+    };
+    
+    const doDrag = (e) => {
+        if (!isDragging) return;
+        let currentX = e.touches ? e.touches[0].clientX : e.clientX;
+        let rect = swipeArea.getBoundingClientRect();
+        let maxDelta = rect.width - 50; // Batas ujung kanan tombol (dikurangi lebar handle)
+        let x = currentX - startX;
+        
+        if (x < 0) x = 0;
+        if (x > maxDelta) x = maxDelta;
+        
+        // Efek visual rasio (0.0 sampai 1.0)
+        let ratio = x / maxDelta;
+        
+        // Geser tombol
+        handle.style.transform = `translateX(${x}px)`;
+        // Fade out teks instruksi
+        swipeText.style.opacity = (1 - ratio * 1.5);
+        // Perubahan warna background dinamis (Makin merah saat mendekati ujung)
+        swipeArea.style.backgroundColor = `rgba(239, 68, 68, ${ratio * 0.2})`;
+        swipeArea.style.borderColor = `rgba(239, 68, 68, ${ratio * 0.5})`;
+
+        if (x >= maxDelta) {
+            isDragging = false;
+            handle.style.transform = `translateX(${maxDelta}px)`;
+            // Kunci tombol agar tidak di-drag lagi sewaktu loading kirim data
+            handle.removeEventListener('mousedown', startDrag);
+            handle.removeEventListener('touchstart', startDrag);
+            kirimPesananKeFirebase();
+        }
+    };
+    
+    const stopDrag = () => { 
+        if (!isDragging) return;
+        isDragging = false; 
+        
+        // Tambahkan kembali kelas transisi elastis agar membal halus ke titik nol
+        handle.classList.add('smooth-back');
+        handle.style.transform = `translateX(0px)`;
+        swipeText.style.opacity = '1';
+        swipeArea.style.backgroundColor = '';
+        swipeArea.style.borderColor = '';
+    };
+
+    handle.addEventListener('mousedown', startDrag);
+    window.addEventListener('mousemove', doDrag);
+    window.addEventListener('mouseup', stopDrag);
+    
+    handle.addEventListener('touchstart', startDrag);
+    window.addEventListener('touchmove', doDrag, { passive: true });
+    window.addEventListener('touchend', stopDrag);
+
+    function kirimPesananKeFirebase() {
+        const karakter = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let kodeUnik = '';
+        for (let i = 0; i < 4; i++) kodeUnik += karakter.charAt(Math.floor(Math.random() * karakter.length));
+
+        const itemsArray = Object.keys(cart).map(k => ({ menu: k, harga: cart[k].harga, qty: cart[k].qty }));
+        const newRef = push(ref(db, 'pesanan'));
+
+        set(newRef, {
+            nama: dataUser.nama,
+            noTelp: dataUser.noTelp,
+            items: itemsArray,
+            totalTagihan: totalHarga,
+            status: 'menunggu_konfirmasi',
+            kodeVerifikasi: kodeUnik,
+            timestamp: Date.now()
+        }).then(() => {
+            // Pasang ulang event listener untuk transaksi berikutnya setelah selesai reset
+            handle.addEventListener('mousedown', startDrag);
+            handle.addEventListener('touchstart', startDrag);
+            pantauAntreanRealtime(newRef.key);
+        });
+    }
+
+    function pantauAntreanRealtime(idPesanan) {
+        document.getElementById('step1').classList.add('hidden');
+        document.getElementById('step2').classList.add('hidden');
+        document.getElementById('step3').classList.remove('hidden');
+        document.getElementById('swipe-area').parentElement.parentElement.classList.add('hidden');
+
+        onValue(ref(db, 'pesanan'), (snapshot) => {
+            const data = snapshot.val();
+            
+            if (!data || !data[idPesanan]) {
+                document.getElementById('step3').innerHTML = `
+                    <div class="py-8 text-center">
+                        <span class="text-5xl">🎉</span>
+                        <h2 class="text-2xl font-black text-emerald-600 mt-4">Pesanan Selesai!</h2>
+                        <p class="text-sm text-gray-500 mt-1 px-4">Terima kasih, martabak kamu sudah diambil dan lunas dibayar.</p>
+                        <button class="mt-6 bg-gray-900 text-white font-bold py-2.5 px-6 rounded-xl text-sm shadow-md" onclick="buatPesananBaru()">Pesan Baru</button>
+                    </div>
+                `;
+                return;
+            }
+
+            const pSaya = data[idPesanan];
+            document.getElementById('tampil-kode').innerText = pSaya.kodeVerifikasi;
+
+            if (pSaya.status === 'menunggu_konfirmasi') {
+                const boxUrutan = document.getElementById('tampil-urutan');
+                boxUrutan.innerText = 'Menunggu Verifikasi Kasir...';
+                boxUrutan.className = "text-md font-bold text-amber-900 py-3 px-4 rounded-xl shadow-sm bg-amber-400";
+                
+                const subStatus = document.getElementById('sub-status');
+                subStatus.innerText = 'Silakan merapat ke meja kasir dan tunjukkan kodemu.';
+                subStatus.className = "text-sm font-semibold mt-3 text-amber-700";
+            } else if (pSaya.status === 'proses') {
+                const semuaPesananProses = Object.values(data).filter(p => p.status === 'proses');
+                const diDepanSaya = semuaPesananProses.filter(p => p.timestamp <= pSaya.timestamp);
+                
+                const boxUrutan = document.getElementById('tampil-urutan');
+                boxUrutan.innerText = `Urutan Antrean Kamu: #${diDepanSaya.length}`;
+                boxUrutan.className = "text-xl font-black text-white py-3.5 px-4 rounded-xl shadow-md bg-emerald-600";
+                
+                const subStatus = document.getElementById('sub-status');
+                subStatus.innerText = '✓ Terverifikasi! Martabakmu sedang dituangkan ke loyang dapur.';
+                subStatus.className = "text-sm font-semibold mt-3 text-emerald-700";
+            }
+        });
+    }
+
+    // --- LOGIK MONITOR ANTREAN TOKO ---
+    onValue(ref(db, 'pesanan'), (snapshot) => {
+        const data = snapshot.val();
+        let htmlKonfirmasi = '';
+        let htmlProses = '';
+
+        if (!data) {
+            document.getElementById('monitor-konfirmasi').innerHTML = '<div class="text-gray-400 text-xs py-2">Tidak ada antrean baru</div>';
+            document.getElementById('monitor-proses').innerHTML = '<div class="text-gray-400 text-xs py-2">Dapur sedang kosong</div>';
+            return;
+        }
+
+        const sorted = Object.keys(data).map(k => ({id: k, ...data[k]})).sort((a,b) => a.timestamp - b.timestamp);
+        let nomorAntrean = 1;
+
+        sorted.forEach(p => {
+            let ringkasanMenu = p.items.map(i => {
+                let namaBersih = i.menu
+                    .replace('Martabak Ayam', 'M. Ayam')
+                    .replace('Martabak Sapi', 'M. Sapi')
+                    .replace('Terang Bulan Single', 'Terbul Single')
+                    .replace('Terang Bulan Double', 'Terbul Double');
+                return `${i.qty}x ${namaBersih}`;
+            }).join(', ');
+
+            if (p.status === 'menunggu_konfirmasi') {
+                htmlKonfirmasi += `
+                    <div class="bg-white p-3 rounded-xl border border-amber-100 shadow-xs flex justify-between items-center gap-2">
+                        <div class="min-w-0 flex-1">
+                            <div class="font-bold text-gray-800 truncate">${p.nama}</div>
+                            <div class="text-xs font-medium text-amber-700/80 break-words">${ringkasanMenu}</div>
+                        </div>
+                        <span class="bg-amber-100 text-amber-800 text-xs font-bold p-2 rounded-lg border border-amber-200 shrink-0">⏳ Antre</span>
+                    </div>
+                `;
+            } else if (p.status === 'proses') {
+                htmlProses += `
+                    <div class="bg-white p-3 rounded-xl border border-emerald-100 shadow-xs flex justify-between items-center gap-2">
+                        <div class="min-w-0 flex-1">
+                            <div class="font-bold text-gray-800 truncate">${p.nama}</div>
+                            <div class="text-xs font-medium text-emerald-700/80 break-words">${ringkasanMenu}</div>
+                        </div>
+                        <span class="bg-emerald-600 text-white text-sm font-black h-8 w-8 rounded-lg flex items-center justify-center shadow-sm shrink-0">#${nomorAntrean}</span>
+                    </div>
+                `;
+                nomorAntrean++;
+            }
+        });
+
+        document.getElementById('monitor-konfirmasi').innerHTML = htmlKonfirmasi || '<div class="text-gray-400 text-xs py-2">Tidak ada antrean baru</div>';
+        document.getElementById('monitor-proses').innerHTML = htmlProses || '<div class="text-gray-400 text-xs py-2">Dapur sedang kosong</div>';
+    });
+</script>
+</body>
+</html>
